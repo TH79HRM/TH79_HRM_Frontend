@@ -1,7 +1,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import {
   Building2,Users,ShieldCheck,History,Plus,ArrowUpRight,Edit3,Trash2,
-  Search,UserRound,AlertTriangle,Save,KeyRound,X
+  Search,UserRound,AlertTriangle,Save,KeyRound,X,UploadCloud,Download,Copy,CheckCircle2
 } from 'lucide-react';
 import {api} from '../lib/api';
 import {Loading,PageHeader,Modal} from '../components/ui';
@@ -57,10 +57,14 @@ export default function System(){
     {tab==='users'&&users&&<UsersTable data={users} canManage={has('user.manage')} currentUser={user} open={setOpen}/>} 
     {tab==='roles'&&roles&&<RolesTable data={roles} canManage={has('role.manage')} open={setOpen}/>} 
 
-    <Modal open={Boolean(open)} onClose={()=>setOpen(null)} title={open?.title||''} wide={open?.kind==='user'}>
+    <Modal open={Boolean(open)} onClose={()=>setOpen(null)} title={open?.title||''} wide={['user','user-import','bulk-result','reset-password','reset-result'].includes(open?.kind)}>
       {open?.kind==='org'&&<OrgForm type={open.type} initial={open.item||null} done={()=>done(open.item?'Đã cập nhật cơ cấu tổ chức.':'Đã thêm mới cơ cấu tổ chức.')}/>} 
       {open?.kind==='delete-org'&&<DeleteOrgConfirm type={open.type} item={open.item} label={open.label} done={()=>done(`Đã xóa ${open.label.toLowerCase()} thành công.`)} cancel={()=>setOpen(null)}/>} 
       {open?.kind==='user'&&<UserForm roles={roles?.roles||[]} initial={open.user||null} done={done}/>} 
+      {open?.kind==='user-import'&&<UserBulkImportForm onComplete={created=>{load();setOpen({kind:'bulk-result',title:'Tài khoản đã được tạo',credentials:created})}}/>}
+      {open?.kind==='bulk-result'&&<TemporaryCredentials credentials={open.credentials||[]} close={()=>setOpen(null)}/>}
+      {open?.kind==='reset-password'&&<ResetUserPasswordForm user={open.user} onComplete={credential=>{load();setOpen({kind:'reset-result',title:'Đã đặt lại mật khẩu',credentials:[credential]})}}/>}
+      {open?.kind==='reset-result'&&<TemporaryCredentials credentials={open.credentials||[]} close={()=>setOpen(null)}/>}
       {open?.kind==='delete-user'&&<DeleteUserConfirm user={open.user} done={done} cancel={()=>setOpen(null)}/>} 
       {open?.kind==='role'&&<RoleForm permissions={roles?.permissions||[]} done={()=>done('Đã lưu vai trò và phân quyền.')}/>} 
     </Modal>
@@ -102,7 +106,7 @@ function UsersTable({data,canManage,currentUser,open}){
   const currentLegacyId=String(currentUser?.id??'');
   const currentMongoId=String(currentUser?._id??'');
   return <section className="card system-users-card">
-    <div className="card-head"><div><h3>Tài khoản hệ thống</h3><p>Quản lý đăng nhập, liên kết nhân viên, vai trò và trạng thái tài khoản.</p></div>{canManage&&<button className="btn primary" onClick={()=>open({kind:'user',title:'Tạo tài khoản mới'})}><Plus/> Thêm tài khoản</button>}</div>
+    <div className="card-head"><div><h3>Tài khoản hệ thống</h3><p>Quản lý đăng nhập, liên kết nhân viên, vai trò và trạng thái tài khoản.</p></div>{canManage&&<div className="page-actions"><button className="btn ghost" onClick={()=>open({kind:'user-import',title:'Tạo nhiều tài khoản'})}><UploadCloud/> Tạo hàng loạt</button><button className="btn primary" onClick={()=>open({kind:'user',title:'Tạo tài khoản mới'})}><Plus/> Thêm tài khoản</button></div>}</div>
     <div className="table-wrap"><table className="system-users-table"><thead><tr><th>Tài khoản</th><th>Nhân viên</th><th>Vai trò</th><th>Đăng nhập gần nhất</th><th>Trạng thái</th>{canManage&&<th className="actions-col">Thao tác</th>}</tr></thead><tbody>{data.items.map((u,i)=>{
       const manageId=String(u.manage_id??u.id??u._id??'');
       const isSelf=Boolean((currentLegacyId&&String(u.id??'')===currentLegacyId)||(currentMongoId&&manageId===currentMongoId));
@@ -114,16 +118,17 @@ function UsersTable({data,canManage,currentUser,open}){
         <td><span className={`dot-status ${u.status}`}>{systemStatusLabel(u.status)}</span></td>
         {canManage&&<td><div className="row-actions">
           <button className="table-action edit" title="Sửa tài khoản" onClick={()=>open({kind:'user',title:`Chỉnh sửa tài khoản ${u.username}`,user:u})}><Edit3/></button>
+          <button className="table-action edit" disabled={isSelf} title={isSelf?'Dùng đổi mật khẩu cá nhân cho tài khoản đang đăng nhập':'Đặt lại mật khẩu'} onClick={()=>!isSelf&&open({kind:'reset-password',title:`Đặt lại mật khẩu · ${u.username}`,user:u})}><KeyRound/></button>
           <button className="table-action delete" disabled={isSelf} title={isSelf?'Không thể xóa tài khoản đang đăng nhập':'Xóa tài khoản'} onClick={()=>!isSelf&&open({kind:'delete-user',title:'Xóa tài khoản',user:u})}><Trash2/></button>
         </div></td>}
       </tr>;
     })}</tbody></table></div>
-    {canManage&&<div className="system-users-note"><ShieldCheck/><span>Để tránh mất quyền quản trị, tài khoản đang đăng nhập và Super Admin cuối cùng được bảo vệ khỏi thao tác xóa.</span></div>}
+    {canManage&&    <div className="system-users-note"><ShieldCheck/><span>Mật khẩu tạm chỉ hiển thị một lần, tài khoản phải đổi mật khẩu khi đăng nhập lần đầu. Đặt lại mật khẩu sẽ thu hồi các phiên đang đăng nhập.</span></div>}
   </section>;
 }
 
 function RolesTable({data,canManage,open}){
-  return <section className="card"><div className="card-head"><div><h3>Vai trò & quyền</h3><p>RBAC được giữ nguyên từ hệ thống hiện tại.</p></div>{canManage&&<button className="btn primary" onClick={()=>open({kind:'role',title:'Tạo vai trò'})}><Plus/> Tạo vai trò</button>}</div><div className="role-grid">{data.roles.map((r,i)=><article className="role-card" key={r.id??r.role_code??i}><span className="role-icon"><ShieldCheck/></span><div><small>{r.role_code}</small><h3>{r.role_name}</h3><p>{r.description}</p><strong>{r.permission_ids.length} quyền</strong></div></article>)}</div></section>;
+  return <section className="card"><div className="card-head"><div><h3>Vai trò & quyền</h3><p>RBAC được giữ nguyên từ hệ thống hiện tại.</p></div>{canManage&&<button className="btn primary" onClick={()=>open({kind:'role',title:'Tạo vai trò'})}><Plus/> Tạo vai trò</button>}</div><div className="role-grid">{data.roles.map((r,i)=><article className="role-card" key={r.id??r.role_code??i}><span className="role-icon"><ShieldCheck/></span><div><small>{r.role_code} · ID {r.id??'—'}</small><h3>{r.role_name}</h3><p>{r.description}</p><strong>{r.permission_ids.length} quyền</strong></div></article>)}</div></section>;
 }
 
 function OrgForm({type,initial,done}){
@@ -149,9 +154,9 @@ function OrgForm({type,initial,done}){
   return <form className="form-stack org-editor-form" onSubmit={submit}>
     {error&&<div className="form-error">{error}</div>}
     {edit&&<div className="org-edit-identity"><Building2/><span><strong>{initial?.[nameKey]}</strong><small>ID liên kết: {initial?.id??'—'} · {initial?.[codeKey]}</small></span></div>}
-    <label>Tên<input required value={f[nameKey]} onChange={e=>setF({...f,[nameKey]:e.target.value})} placeholder="Nhập tên hiển thị"/></label>
+    <label>Tên<input required minLength="2" maxLength="120" value={f[nameKey]} onChange={e=>setF({...f,[nameKey]:e.target.value})} placeholder="Nhập tên hiển thị"/></label>
     <div className="two-col">
-      <label>Mã<input required value={f[codeKey]} onChange={e=>setF({...f,[codeKey]:e.target.value.toUpperCase()})} placeholder="Ví dụ: CN010"/></label>
+      <label>Mã<input required minLength="2" maxLength="30" pattern="[A-Za-z0-9._-]+" value={f[codeKey]} onChange={e=>setF({...f,[codeKey]:e.target.value.toUpperCase()})} placeholder="Ví dụ: CN010"/></label>
       <label>Trạng thái<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}><option value="active">Đang hoạt động</option><option value="inactive">Ngưng hoạt động</option></select></label>
     </div>
     <div className="modal-form-actions"><button className="btn primary" disabled={busy}><Save/>{busy?'Đang lưu...':edit?'Lưu thay đổi':'Thêm mới'}</button></div>
@@ -226,11 +231,11 @@ function UserForm({roles,initial,done}){
     {error&&<div className="form-error">{error}</div>}
     {initial?.is_super_admin?<div className="user-admin-notice"><ShieldCheck/><span><strong>Tài khoản Super Admin</strong><small>Tài khoản này có toàn quyền hệ thống độc lập với vai trò RBAC.</small></span></div>:null}
     <div className="two-col">
-      <label>Tài khoản<input required value={f.username} onChange={e=>setF({...f,username:e.target.value})} autoComplete="off"/></label>
-      <label>Email<input type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})} placeholder="email@congty.vn"/></label>
+      <label>Tài khoản<input required minLength="3" maxLength="64" pattern="[A-Za-z0-9._-]+" value={f.username} onChange={e=>setF({...f,username:e.target.value})} autoComplete="off"/></label>
+      <label>Email<input type="email" maxLength="254" value={f.email} onChange={e=>setF({...f,email:e.target.value})} placeholder="email@congty.vn"/></label>
     </div>
     <div className="two-col">
-      <label>{edit?'Mật khẩu mới':'Mật khẩu'}<div className="input-with-icon"><KeyRound/><input required={!edit} type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})} placeholder={edit?'Để trống nếu không đổi':'Tối thiểu 8 ký tự'} autoComplete="new-password"/></div></label>
+      {!edit&&<label>Mật khẩu ban đầu<div className="input-with-icon"><KeyRound/><input required minLength="8" maxLength="72" type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})} placeholder="Tối thiểu 8 ký tự" autoComplete="new-password"/></div><small className="field-help">Người dùng sẽ phải đổi mật khẩu ở lần đăng nhập đầu tiên.</small></label>}
       <label>Trạng thái<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}><option value="active">Đang hoạt động</option><option value="inactive">Ngưng hoạt động</option><option value="locked">Khóa đăng nhập</option></select></label>
     </div>
     <div className="user-role-field"><div className="role-field-label"><span>Vai trò</span><small>Có thể chọn một hoặc nhiều vai trò cho tài khoản.</small></div><div className="user-role-selector">{roles.length?roles.map((r,i)=>{const roleId=Number(r.id);const selected=Number.isFinite(roleId)&&f.role_ids.includes(roleId);return <button type="button" className={selected?'selected':''} key={r.id??r.role_code??i} onClick={()=>Number.isFinite(roleId)&&toggleRole(roleId)} disabled={!Number.isFinite(roleId)}><span className="role-check">{selected?'✓':''}</span><span><strong>{r.role_name}</strong><small>{r.role_code||`ID ${r.id??'—'}`}</small></span></button>}):<div className="role-selector-empty">Chưa có vai trò khả dụng. Hãy tạo vai trò tại mục Vai trò & phân quyền.</div>}</div>{!f.role_ids.length&&<small className="field-help">Tài khoản chưa được gán vai trò RBAC.</small>}</div>
@@ -242,6 +247,171 @@ function UserForm({roles,initial,done}){
     </label>
     <div className="modal-form-actions"><button type="submit" className="btn primary" disabled={busy}><Save/>{busy?'Đang lưu...':edit?'Lưu thay đổi':'Tạo tài khoản'}</button></div>
   </form>;
+}
+
+function UserBulkImportForm({onComplete}){
+  const [file,setFile]=useState(null),[preview,setPreview]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const chooseFile=e=>{
+    const selected=e.target.files?.[0]||null;
+    setPreview(null);setError('');
+    if(selected&&selected.size>10*1024*1024){setFile(null);setError('File không được vượt quá 10 MB.');return}
+    if(selected&&!/\.(xlsx?|csv)$/i.test(selected.name)){setFile(null);setError('Chỉ hỗ trợ file XLS, XLSX hoặc CSV.');return}
+    setFile(selected);
+  };
+  const downloadTemplate=async()=>{
+    setBusy(true);setError('');
+    try{
+      const blob=await api('/system/users/import/template');
+      const url=URL.createObjectURL(blob),a=document.createElement('a');
+      a.href=url;a.download='TH79_Mau_TaoTaiKhoan.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }catch(ex){setError(ex.message||'Không tải được file mẫu.')}finally{setBusy(false)}
+  };
+  const inspect=async()=>{
+    if(!file)return;
+    setBusy(true);setError('');
+    const body=new FormData();body.append('file',file);
+    try{setPreview(await api('/system/users/import/preview',{method:'POST',body}))}
+    catch(ex){setError(ex.message||'Không thể kiểm tra file.')}finally{setBusy(false)}
+  };
+  const confirm=async()=>{
+    if(!preview?.summary?.valid||preview.summary.errors)return;
+    setBusy(true);setError('');
+    try{
+      const result=await api('/system/users/import/confirm',{
+        method:'POST',
+        body:JSON.stringify({rows:preview.preview.map(item=>({row:item.row,data:item.data}))})
+      });
+      onComplete(result.created||[]);
+    }catch(ex){
+      if(ex.payload?.preview)setPreview({preview:ex.payload.preview,summary:ex.payload.summary});
+      setError(ex.message||'Không thể tạo tài khoản.');
+    }
+    finally{setBusy(false)}
+  };
+  return <div className="form-stack">
+    {error&&<div className="form-error" role="alert">{error}</div>}
+    <div className="upload-zone">
+      <UploadCloud size={34}/>
+      <h3>Chọn danh sách tài khoản</h3>
+      <p>Excel hoặc CSV, tối đa 10 MB và 500 tài khoản. Chỉ thêm tài khoản đã có hồ sơ nhân viên (nếu liên kết).</p>
+      <input type="file" accept=".xlsx,.xls,.csv" onChange={chooseFile}/>
+      {file&&<strong>{file.name}</strong>}
+      <div className="page-actions">
+        <button type="button" className="btn ghost" onClick={downloadTemplate} disabled={busy}><Download/> File mẫu</button>
+        <button type="button" className="btn primary" onClick={inspect} disabled={!file||busy}>{busy?'Đang kiểm tra...':'Kiểm tra dữ liệu'}</button>
+      </div>
+    </div>
+    {preview&&<>
+      <div className="preview-summary"><span><b>{preview.summary.total}</b> Tổng dòng</span><span className="ok"><b>{preview.summary.valid}</b> Hợp lệ</span><span className="bad"><b>{preview.summary.errors}</b> Có lỗi</span></div>
+      <div className="table-wrap"><table><thead><tr><th>Dòng</th><th>Tài khoản</th><th>Email</th><th>Liên kết nhân viên</th><th>Vai trò</th><th>Lỗi</th></tr></thead><tbody>
+        {preview.preview.map(item=><tr key={item.row}>
+          <td>{item.row}</td><td>{item.data.username||'—'}</td><td>{item.data.email||'—'}</td>
+          <td><EmployeeSearchPicker employeeId={item.data.employee_id} onChange={employee=>setPreview(current=>{
+            const updated=current.preview.map(row=>row.row===item.row?{
+              ...row,
+              data:{...row.data,employee_id:employee?.id||null},
+              errors:row.errors.filter(message=>!(/^(Mã nhân viên liên kết|Nhân viên đã được liên kết)/.test(message)))
+            }:row)
+            const errors=updated.filter(row=>row.errors.length).length;
+            return {...current,preview:updated,summary:{...current.summary,valid:updated.length-errors,errors}};
+          })}/></td>
+          <td>{item.data.role_ids.join(', ')||'—'}</td><td>{item.errors.length?<span className="error-text">{item.errors.join('; ')}</span>:<span className="success-text">Hợp lệ</span>}</td>
+        </tr>)}
+      </tbody></table></div>
+      <div className="system-users-note"><ShieldCheck/><span>Mật khẩu tạm riêng sẽ được tạo cho từng người và chỉ hiển thị một lần sau khi xác nhận. Hãy chuyển cho từng nhân viên qua kênh an toàn.</span></div>
+      <div className="modal-form-actions"><button type="button" className="btn primary" onClick={confirm} disabled={busy||!preview.summary.valid||preview.summary.errors>0}>{busy?'Đang tạo...':`Tạo ${preview.summary.valid} tài khoản`}</button></div>
+    </>}
+  </div>;
+}
+
+function EmployeeSearchPicker({employeeId,onChange}){
+  const [query,setQuery]=useState('');
+  const [selected,setSelected]=useState(employeeId?{id:employeeId,full_name:`Mã NV ${employeeId}`}:null);
+  const [results,setResults]=useState([]);
+  const [searching,setSearching]=useState(false);
+  const [error,setError]=useState('');
+
+  useEffect(()=>{
+    setSelected(current=>String(current?.id??'')===String(employeeId??'')
+      ?current
+      :employeeId?{id:employeeId,full_name:`Mã NV ${employeeId}`}:null);
+  },[employeeId]);
+
+  useEffect(()=>{
+    const term=query.trim();
+    if(term.length<2){setResults([]);return}
+    const timer=setTimeout(async()=>{
+      setSearching(true);setError('');
+      try{
+        const response=await api(`/system/users/employee-search?q=${encodeURIComponent(term)}`);
+        setResults(response.items||[]);
+      }catch(ex){setError(ex.message||'Không tìm được nhân viên.')}
+      finally{setSearching(false)}
+    },250);
+    return()=>clearTimeout(timer);
+  },[query]);
+
+  const choose=employee=>{
+    setSelected(employee);setQuery('');setResults([]);onChange(employee);
+  };
+  const clear=()=>{
+    setSelected(null);setQuery('');setResults([]);onChange(null);
+  };
+
+  return <div className="employee-link-field bulk-employee-picker">
+    <div className="employee-search-input">
+      <Search/>
+      <input value={selected?`${selected.full_name}${selected.employee_code?` · ${selected.employee_code}`:''}`:query}
+        onChange={event=>{setSelected(null);setQuery(event.target.value);if(employeeId)onChange(null)}}
+        placeholder="Tìm tên, mã hoặc số điện thoại..." aria-label="Tìm nhân viên để liên kết"/>
+      {(selected||query)&&<button type="button" onClick={clear} aria-label="Bỏ liên kết nhân viên"><X/></button>}
+    </div>
+    {searching&&<small className="field-help">Đang tìm...</small>}
+    {error&&<small className="field-help error-text">{error}</small>}
+    {results.length>0&&<div className="employee-search-results">{results.map((employee,index)=><button type="button" key={employee.id??index} onClick={()=>choose(employee)}>
+      <span><UserRound/></span><div><strong>{employee.full_name}</strong><small>{employee.employee_code||'Chưa có mã'} · {employee.phone||'Chưa có SĐT'}</small></div>
+    </button>)}</div>}
+    {!searching&&query.trim().length>=2&&!results.length&&!error&&<small className="field-help">Không tìm thấy nhân viên.</small>}
+  </div>;
+}
+
+function ResetUserPasswordForm({user,onComplete}){
+  const [busy,setBusy]=useState(false),[error,setError]=useState('');
+  const reset=async()=>{
+    setBusy(true);setError('');
+    try{onComplete(await api(`/system/users/${encodeURIComponent(user.manage_id??user.id??user._id)}/reset-password`,{method:'POST'}))}
+    catch(ex){setError(ex.message||'Không thể đặt lại mật khẩu.')}finally{setBusy(false)}
+  };
+  return <div className="form-stack">
+    <p>Tạo mật khẩu tạm mới cho <strong>{user?.username}</strong>. Các phiên hiện tại sẽ bị đăng xuất và người dùng phải đổi mật khẩu khi đăng nhập lại.</p>
+    {error&&<div className="form-error" role="alert">{error}</div>}
+    <div className="modal-form-actions"><button type="button" className="btn primary" onClick={reset} disabled={busy}>{busy?'Đang đặt lại...':'Tạo mật khẩu tạm'}</button></div>
+  </div>;
+}
+
+function TemporaryCredentials({credentials,close}){
+  const [copied,setCopied]=useState(''),[error,setError]=useState('');
+  const rows=credentials.map(item=>({username:item.username,password:item.temporary_password??item.temporaryPassword,employee_id:item.employee_id||''}));
+  const csvEscape=value=>`"${String(value??'').replace(/"/g,'""')}"`;
+  const download=()=>{
+    const lines=[['Tài khoản','Mật khẩu tạm','Mã nhân viên'],...rows.map(item=>[item.username,item.password,item.employee_id])].map(line=>line.map(csvEscape).join(','));
+    const blob=new Blob(['\uFEFF',lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='TH79_MatKhauTam.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
+  const copy=async(item)=>{
+    setError('');
+    try{await navigator.clipboard.writeText(`${item.username}\t${item.password}`);setCopied(item.username)}
+    catch{setError('Không thể sao chép tự động. Hãy chọn và sao chép thông tin trực tiếp.')}
+  };
+  return <div className="form-stack">
+    <div className="system-users-note"><ShieldCheck/><span>Mật khẩu này chỉ xuất hiện lần này. Tài khoản phải đổi mật khẩu ngay lần đăng nhập đầu tiên; không gửi cả danh sách qua kênh công khai.</span></div>
+    {error&&<div className="form-error" role="alert">{error}</div>}
+    <div className="table-wrap"><table><thead><tr><th>Tài khoản</th><th>Mật khẩu tạm</th><th></th></tr></thead><tbody>
+      {rows.map(item=><tr key={item.username}><td><strong>{item.username}</strong></td><td><code>{item.password}</code></td><td><button className="btn small ghost" type="button" onClick={()=>copy(item)}>{copied===item.username?<CheckCircle2/>:<Copy/>}{copied===item.username?'Đã sao chép':'Sao chép'}</button></td></tr>)}
+    </tbody></table></div>
+    <div className="modal-form-actions"><button className="btn ghost" type="button" onClick={download}><Download/> Tải CSV</button><button className="btn primary" type="button" onClick={close}>Đã lưu an toàn · Đóng</button></div>
+  </div>;
 }
 
 function DeleteUserConfirm({user,done,cancel}){
@@ -266,7 +436,7 @@ function RoleForm({permissions,done}){
   const [f,setF]=useState({role_code:'',role_name:'',description:'',permission_ids:[]}),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const toggle=id=>setF(x=>({...x,permission_ids:x.permission_ids.includes(id)?x.permission_ids.filter(v=>v!==id):[...x.permission_ids,id]}));
   const submit=async e=>{e.preventDefault();setBusy(true);setError('');try{await api('/system/roles',{method:'POST',body:JSON.stringify(f)});done()}catch(err){setError(err.message)}finally{setBusy(false)}};
-  return <form className="form-stack" onSubmit={submit}>{error&&<div className="form-error">{error}</div>}<div className="two-col"><label>Mã vai trò<input required value={f.role_code} onChange={e=>setF({...f,role_code:e.target.value})}/></label><label>Tên vai trò<input required value={f.role_name} onChange={e=>setF({...f,role_name:e.target.value})}/></label></div><label>Mô tả<input value={f.description} onChange={e=>setF({...f,description:e.target.value})}/></label><div className="permission-grid">{permissions.map((p,i)=><label key={p.id??p.permission_code??i}><input type="checkbox" checked={f.permission_ids.includes(Number(p.id))} onChange={()=>toggle(Number(p.id))}/><span><strong>{p.permission_name}</strong><small>{p.permission_code}</small></span></label>)}</div><button className="btn primary" disabled={busy}>{busy?'Đang lưu...':'Lưu vai trò'}</button></form>;
+  return <form className="form-stack" onSubmit={submit}>{error&&<div className="form-error">{error}</div>}<div className="two-col"><label>Mã vai trò<input required minLength="2" maxLength="40" pattern="[A-Za-z0-9._-]+" value={f.role_code} onChange={e=>setF({...f,role_code:e.target.value})}/></label><label>Tên vai trò<input required minLength="2" maxLength="120" value={f.role_name} onChange={e=>setF({...f,role_name:e.target.value})}/></label></div><label>Mô tả<input maxLength="500" value={f.description} onChange={e=>setF({...f,description:e.target.value})}/></label><div className="permission-grid">{permissions.map((p,i)=><label key={p.id??p.permission_code??i}><input type="checkbox" checked={f.permission_ids.includes(Number(p.id))} onChange={()=>toggle(Number(p.id))}/><span><strong>{p.permission_name}</strong><small>{p.permission_code}</small></span></label>)}</div><button className="btn primary" disabled={busy}>{busy?'Đang lưu...':'Lưu vai trò'}</button></form>;
 }
 
 function systemStatusLabel(value){return ({active:'Đang hoạt động',inactive:'Ngưng hoạt động',locked:'Đã khóa',disabled:'Đã tắt',pending:'Chờ xử lý'})[String(value||'').toLowerCase()]||value||'—'}

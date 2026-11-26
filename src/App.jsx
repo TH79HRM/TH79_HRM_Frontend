@@ -1,2 +1,56 @@
-import {Routes,Route,Navigate} from 'react-router-dom';import AppLayout from './components/AppLayout';import Login from './pages/Login';import Dashboard from './pages/Dashboard';import Employees from './pages/Employees';import EmployeeDetail from './pages/EmployeeDetail';import EmployeeForm from './pages/EmployeeForm';import EmployeeImport from './pages/EmployeeImport';import Onboarding from './pages/Onboarding';import Contracts from './pages/Contracts';import Payroll from './pages/Payroll';import Recruitment from './pages/Recruitment';import Training from './pages/Training';import Analytics from './pages/Analytics';import Activity from './pages/Activity';import System from './pages/System';import SelfService from './pages/SelfService';import Requests from './pages/Requests';import Reports from './pages/Reports';import NotFound from './pages/NotFound';
-export default function App(){return <Routes><Route path="/login" element={<Login/>}/><Route element={<AppLayout/>}><Route index element={<Dashboard/>}/><Route path="employees" element={<Employees/>}/><Route path="employees/new" element={<EmployeeForm/>}/><Route path="employees/import" element={<EmployeeImport/>}/><Route path="employees/:id" element={<EmployeeDetail/>}/><Route path="employees/:id/edit" element={<EmployeeForm/>}/><Route path="onboarding" element={<Onboarding/>}/><Route path="contracts" element={<Contracts/>}/><Route path="payroll" element={<Payroll/>}/><Route path="recruitment" element={<Recruitment/>}/><Route path="training" element={<Training/>}/><Route path="analytics" element={<Analytics/>}/><Route path="reports" element={<Reports/>}/><Route path="activity" element={<Activity/>}/><Route path="system" element={<System/>}/><Route path="me" element={<SelfService/>}/><Route path="self-service/requests" element={<Requests/>}/><Route path="*" element={<NotFound/>}/></Route></Routes>}
+import { Routes, Route } from 'react-router-dom';
+import AppLayout from './components/AppLayout';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Employees from './pages/Employees';
+import EmployeeDetail from './pages/EmployeeDetail';
+import EmployeeForm from './pages/EmployeeForm';
+import EmployeeImport from './pages/EmployeeImport';
+import Onboarding from './pages/Onboarding';
+import Contracts from './pages/Contracts';
+import Payroll from './pages/Payroll';
+import Recruitment from './pages/Recruitment';
+import Training from './pages/Training';
+import Analytics from './pages/Analytics';
+import Activity from './pages/Activity';
+import System from './pages/System';
+import SelfService from './pages/SelfService';
+import Requests from './pages/Requests';
+import Reports from './pages/Reports';
+import Attendance from './pages/Attendance';
+import Leave from './pages/Leave';
+import Kiosk from './pages/Kiosk';
+import ChangePassword from './pages/ChangePassword';
+import NotFound from './pages/NotFound';
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/kiosk" element={<Kiosk />} />
+      <Route element={<AppLayout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="employees" element={<Employees />} />
+        <Route path="employees/new" element={<EmployeeForm />} />
+        <Route path="employees/import" element={<EmployeeImport />} />
+        <Route path="employees/:id" element={<EmployeeDetail />} />
+        <Route path="employees/:id/edit" element={<EmployeeForm />} />
+        <Route path="onboarding" element={<Onboarding />} />
+        <Route path="contracts" element={<Contracts />} />
+        <Route path="attendance" element={<Attendance />} />
+        <Route path="leave" element={<Leave />} />
+        <Route path="payroll" element={<Payroll />} />
+        <Route path="recruitment" element={<Recruitment />} />
+        <Route path="training" element={<Training />} />
+        <Route path="analytics" element={<Analytics />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="activity" element={<Activity />} />
+        <Route path="system" element={<System />} />
+        <Route path="me" element={<SelfService />} />
+        <Route path="self-service/requests" element={<Requests />} />
+        <Route path="change-password" element={<ChangePassword />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
+  );
+}

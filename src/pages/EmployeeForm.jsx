@@ -1,10 +1,11 @@
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {useNavigate,useParams} from 'react-router-dom';
 import {ArrowLeft,Save,ShieldCheck,Paperclip,UploadCloud,FileText,BriefcaseBusiness,ContactRound,FolderUp,WalletCards,Banknote,UsersRound} from 'lucide-react';
 import {api} from '../lib/api';
 import {Loading,Toast} from '../components/ui';
 import {entityId,entityKey} from '../lib/format';
 import {useAuth} from '../hooks/useAuth';
+import {isValidDate,isValidEmail,isValidNumber,isValidPhone} from '../lib/validation';
 
 const initial={
   employee_code:'',full_name:'',gender:'unknown',date_of_birth:'',professional_qualification:'',identity_number:'',
@@ -53,6 +54,16 @@ export default function EmployeeForm(){
   if(!look&&!error)return <Loading/>;
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const notify=(message,tone='success')=>setToast({message,tone,key:Date.now()});
+  const chooseDocument=(docId,event)=>{
+    const file=event.target.files?.[0]||null;
+    if(file&&file.size>10*1024*1024){setError('Mỗi tệp hồ sơ không được vượt quá 10 MB.');event.target.value='';return}
+    const validType=file&&(['application/pdf','image/png','image/jpeg','image/webp'].includes(file.type)||/\.(pdf|png|jpe?g|webp)$/i.test(file.name));
+    if(file&&!validType){
+      setError('Chỉ hỗ trợ tệp PDF, PNG, JPG/JPEG hoặc WEBP.');event.target.value='';return
+    }
+    setError('');
+    setFiles(current=>({...current,[docId]:file}));
+  };
 
   const uploadDocuments=async employeeId=>{
     const selected=Object.entries(files).filter(([,file])=>file);
@@ -72,7 +83,10 @@ export default function EmployeeForm(){
   };
 
   const submit=async e=>{
-    e.preventDefault();setBusy(true);setError('');
+    e.preventDefault();
+    const validationError=validateEmployeeForm(form,has('payroll.manage'));
+    if(validationError){setError(validationError);return}
+    setBusy(true);setError('');
     try{
       let employeeId=id;
       if(edit){
@@ -108,16 +122,16 @@ export default function EmployeeForm(){
         <section className="card employee-form-card">
           <div className="form-card-title"><div><h3>Thông tin cá nhân</h3><p>Thông tin định danh và liên hệ của nhân viên</p></div><span><ContactRound/></span></div>
           <div className="form-grid two-form-cols">
-            <Field label="Họ và tên" required><input required value={form.full_name} onChange={e=>set('full_name',e.target.value)} placeholder="Nguyễn Văn A"/></Field>
+            <Field label="Họ và tên" required><input required minLength="2" maxLength="120" value={form.full_name} onChange={e=>set('full_name',e.target.value)} placeholder="Nguyễn Văn A"/></Field>
             <Field label="Giới tính"><select value={form.gender} onChange={e=>set('gender',e.target.value)}><option value="unknown">Chưa cập nhật</option><option value="male">Nam</option><option value="female">Nữ</option><option value="other">Khác</option></select></Field>
             <Field label="Ngày sinh"><input type="date" value={form.date_of_birth||''} onChange={e=>set('date_of_birth',e.target.value)}/></Field>
             <Field label="Trình độ chuyên môn"><input value={form.professional_qualification||''} onChange={e=>set('professional_qualification',e.target.value)} placeholder="Ví dụ: Đại học Kế toán"/></Field>
-            <Field label="CMND/CCCD"><input value={form.identity_number||''} onChange={e=>set('identity_number',e.target.value)} placeholder="Nhập dạng chuỗi số"/></Field>
-            <Field label="Số điện thoại"><input value={form.phone||''} onChange={e=>set('phone',e.target.value)} placeholder="09xxxxxxxx"/></Field>
-            <Field label="Email"><input type="email" value={form.email||''} onChange={e=>set('email',e.target.value)} placeholder="email@congty.vn"/></Field>
-            <Field label="Số BHXH"><input value={form.social_insurance_number||''} onChange={e=>set('social_insurance_number',e.target.value)} placeholder="Số BHXH nếu đã có"/></Field>
-            <Field label="Thường trú" wide><textarea value={form.permanent_address||''} onChange={e=>set('permanent_address',e.target.value)} placeholder="Địa chỉ thường trú"/></Field>
-            <Field label="Nơi ở hiện tại" wide><textarea value={form.current_address||''} onChange={e=>set('current_address',e.target.value)} placeholder="Địa chỉ hiện tại"/></Field>
+            <Field label="CMND/CCCD"><input inputMode="numeric" maxLength="12" value={form.identity_number||''} onChange={e=>set('identity_number',e.target.value)} placeholder="Nhập dạng chuỗi số"/></Field>
+            <Field label="Số điện thoại"><input type="tel" maxLength="20" value={form.phone||''} onChange={e=>set('phone',e.target.value)} placeholder="09xxxxxxxx"/></Field>
+            <Field label="Email"><input type="email" maxLength="254" value={form.email||''} onChange={e=>set('email',e.target.value)} placeholder="email@congty.vn"/></Field>
+            <Field label="Số BHXH"><input inputMode="numeric" maxLength="10" value={form.social_insurance_number||''} onChange={e=>set('social_insurance_number',e.target.value)} placeholder="Số BHXH nếu đã có"/></Field>
+            <Field label="Thường trú" wide><textarea maxLength="500" value={form.permanent_address||''} onChange={e=>set('permanent_address',e.target.value)} placeholder="Địa chỉ thường trú"/></Field>
+            <Field label="Nơi ở hiện tại" wide><textarea maxLength="500" value={form.current_address||''} onChange={e=>set('current_address',e.target.value)} placeholder="Địa chỉ hiện tại"/></Field>
           </div>
         </section>
 
@@ -131,7 +145,7 @@ export default function EmployeeForm(){
               return <label className={`document-upload-card ${file?'selected':''}`} key={entityKey(doc,`doc-${i}`)}>
                 <div className="document-upload-head"><span><FileText/></span><div><strong>{doc.document_name}</strong><small>{file?file.name:'Chưa có hồ sơ — nên tải lên ngay'}</small></div><em>{file?'Đã chọn':'Còn thiếu'}</em></div>
                 <div className="document-drop"><UploadCloud/><span><strong>{file?'Đổi file':'Bấm để chọn PDF / ảnh scan'}</strong><small>{file?`${Math.round(file.size/1024)} KB`:'PDF, PNG, JPG, WEBP'}</small></span></div>
-                <input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" hidden onChange={e=>setFiles(x=>({...x,[docId]:e.target.files?.[0]||null}))}/>
+                <input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" hidden onChange={e=>chooseDocument(docId,e)}/>
               </label>;
             })}
             {!requiredDocs.length&&<div className="empty">Chưa cấu hình loại hồ sơ bắt buộc.</div>}
@@ -141,7 +155,7 @@ export default function EmployeeForm(){
         <section className="card employee-form-card">
           <div className="form-card-title"><div><h3>Thông tin công việc</h3><p>Đơn vị, chức vụ và tình trạng làm việc</p></div><span><BriefcaseBusiness/></span></div>
           <div className="form-grid two-form-cols">
-            <Field label="Mã nhân viên"><input value={form.employee_code} onChange={e=>set('employee_code',e.target.value)} placeholder="Tự sinh nếu để trống"/></Field>
+            <Field label="Mã nhân viên"><input maxLength="30" value={form.employee_code} onChange={e=>set('employee_code',e.target.value)} placeholder="Tự sinh nếu để trống"/></Field>
             <Field label="Trạng thái"><select value={form.employment_status} onChange={e=>set('employment_status',e.target.value)}><option value="probation">Nhân viên thử việc</option><option value="active">Nhân viên chính thức</option><option value="on_leave">Nghỉ phép</option><option value="resigned">Đã nghỉ việc</option><option value="inactive">Ngưng hoạt động</option></select></Field>
             <Field label="Chi nhánh"><select value={form.branch_id||''} onChange={e=>set('branch_id',e.target.value)}><option value="">Chưa cập nhật</option>{options(look?.branches,'branch_name','branch')}</select></Field>
             <Field label="Phòng ban trực thuộc"><select value={form.department_id||''} onChange={e=>set('department_id',e.target.value)}><option value="">Chưa cập nhật</option>{options(look?.departments,'department_name','department')}</select></Field>
@@ -167,7 +181,7 @@ export default function EmployeeForm(){
             <Field label="Phụ cấp chuyên cần"><MoneyInput value={form.attendance_allowance} onChange={v=>set('attendance_allowance',v)}/></Field>
             <Field label="Phụ cấp khác"><MoneyInput value={form.other_allowance} onChange={v=>set('other_allowance',v)}/></Field>
             <Field label="Hiệu lực lương từ"><input type="date" value={form.salary_effective_from||form.join_date||''} onChange={e=>set('salary_effective_from',e.target.value)}/></Field>
-            <Field label="Số tài khoản ngân hàng"><input value={form.bank_account_number||''} onChange={e=>set('bank_account_number',e.target.value)} placeholder="Số tài khoản nhận lương"/></Field>
+            <Field label="Số tài khoản ngân hàng"><input inputMode="numeric" maxLength="30" value={form.bank_account_number||''} onChange={e=>set('bank_account_number',e.target.value)} placeholder="Số tài khoản nhận lương"/></Field>
             <Field label="Ngân hàng"><input value={form.bank_name||''} onChange={e=>set('bank_name',e.target.value)} placeholder="VD: OCB, VCB, MB..."/></Field>
             <Field label="Số người phụ thuộc"><input type="number" min="0" step="1" value={form.tax_dependents||0} onChange={e=>set('tax_dependents',e.target.value)}/></Field>
           </div>
@@ -183,7 +197,7 @@ export default function EmployeeForm(){
             {requiredDocs.map((doc,i)=>{const docId=entityId(doc)||doc.id||i+1;return <span key={entityKey(doc,`side-${i}`)} className={files[docId]?'done':''}><i/>{doc.document_name}</span>})}
           </div>
           {has('document.upload')&&<a className="attach-jump" href="#employee-document-upload"><Paperclip/> Đính kèm hồ sơ <span>PDF / ảnh scan</span></a>}
-          {has('payroll.manage')&&<div className="salary-side-summary"><UsersRound/><span><small>Lương áp dụng</small><strong>{formatMoney(form.employment_status==='probation'?(form.probation_salary||form.base_salary):form.base_salary)}</strong></span></div>}
+          {has('payroll.manage')&&<div className="salary-side-summary"><UsersRound/><span><small>{form.employment_status==='probation'?'Lương thử việc đang áp dụng':'Lương chính thức đang áp dụng'}</small><strong>{formatMoney(form.employment_status==='probation'?(form.probation_salary||form.base_salary):form.base_salary)}</strong></span></div>}
           <div className="storage-ready"><ShieldCheck/> Kho hồ sơ bảo mật sẵn sàng</div>
           <button className="btn primary create-submit" disabled={busy||Boolean(error&&!look)}><Save/>{busy?'Đang lưu...':edit?'Lưu thay đổi':'Tạo nhân viên'}</button>
           <button type="button" className="btn ghost" onClick={()=>nav(-1)}>Hủy</button>
@@ -194,7 +208,101 @@ export default function EmployeeForm(){
 }
 
 function Field({label,required,wide,children}){return <label className={wide?'wide':''}><span>{label}{required&&' *'}</span>{children}</label>}
-function MoneyInput({value,onChange,placeholder='0'}){return <input type="number" min="0" step="1000" value={Number(value)||''} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/>}
+function moneyDigits(value){
+  return String(value??'').replace(/\D/g,'').replace(/^0+(?=\d)/,'');
+}
+function formatGroupedMoney(value){
+  const digits=moneyDigits(value);
+  if(!digits||Number(digits)===0)return '';
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+}
+function MoneyInput({value,onChange,placeholder='0'}){
+  const inputRef=useRef(null);
+  const caretDigits=useRef(null);
+  const [focused,setFocused]=useState(false);
+  const [display,setDisplay]=useState(()=>formatGroupedMoney(value));
+  const lastValue=useRef(value);
+  useEffect(()=>{
+    if(Object.is(value,lastValue.current))return;
+    lastValue.current=value;
+    setDisplay(focused&&Number(value)?moneyDigits(value):focused?'':formatGroupedMoney(value));
+  },[value,focused]);
+  useLayoutEffect(()=>{
+    if(caretDigits.current===null)return;
+    const input=inputRef.current;
+    if(input&&document.activeElement===input){
+      const position=positionAfterDigits(input.value,caretDigits.current);
+      input.setSelectionRange(position,position);
+    }
+    caretDigits.current=null;
+  });
+  const change=e=>{
+    const el=e.target;
+    const raw=el.value;
+    if(/[−-]/.test(raw))return;
+    const digits=moneyDigits(raw);
+    const next=digits&&Number(digits)?Number(digits):'';
+    lastValue.current=next;
+    setDisplay(digits);
+    onChange(next);
+  };
+  return <input
+    ref={inputRef}
+    type="text"
+    inputMode="numeric"
+    autoComplete="off"
+    value={display}
+    onChange={change}
+    onFocus={e=>{
+      const raw=e.currentTarget.value;
+      const caret=e.currentTarget.selectionStart??raw.length;
+      caretDigits.current=raw.slice(0,caret).replace(/\D/g,'').length;
+      lastValue.current=value;
+      setFocused(true);
+      setDisplay(Number(value)?moneyDigits(value):'');
+    }}
+    onBlur={()=>{
+      setFocused(false);
+      setDisplay(formatGroupedMoney(value));
+    }}
+    onKeyDown={e=>{if(e.key==='-'||e.key==='Subtract')e.preventDefault()}}
+    placeholder={placeholder}
+  />;
+}
+function positionAfterDigits(value,digitCount){
+  if(digitCount<=0)return 0;
+  let seen=0;
+  for(let index=0;index<value.length;index++){
+    if(/\d/.test(value[index]))seen++;
+    if(seen===digitCount)return index+1;
+  }
+  return value.length;
+}
 function normalize(e){const o={...e};for(const k of ['date_of_birth','join_date','probation_end_date'])if(o[k])o[k]=String(o[k]).slice(0,10);return o}
 function normalizeSalary(s){const o={...s};if(o.effective_from)o.salary_effective_from=String(o.effective_from).slice(0,10);delete o.effective_from;return o}
 function formatMoney(v){return new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND',maximumFractionDigits:0}).format(Number(v)||0)}
+
+function validateEmployeeForm(form,includeSalary){
+  if(String(form.full_name||'').trim().length<2||String(form.full_name).trim().length>120)return 'Họ và tên phải có từ 2 đến 120 ký tự.';
+  if(form.employee_code&&!/^[A-Za-z0-9._-]{2,30}$/.test(String(form.employee_code).trim()))return 'Mã nhân viên chỉ được dùng chữ, số, dấu chấm, gạch ngang hoặc gạch dưới (2–30 ký tự).';
+  if(form.email&&!isValidEmail(String(form.email).trim()))return 'Email không đúng định dạng.';
+  if(form.phone&&!isValidPhone(String(form.phone).trim()))return 'Số điện thoại không đúng định dạng.';
+  const identity=String(form.identity_number||'').replace(/\s/g,'');
+  if(identity&&!/^(?:\d{9}|\d{12})$/.test(identity))return 'CMND/CCCD phải gồm 9 hoặc 12 chữ số.';
+  const socialInsurance=String(form.social_insurance_number||'').replace(/\s/g,'');
+  if(socialInsurance&&!/^\d{10}$/.test(socialInsurance))return 'Số BHXH phải gồm 10 chữ số.';
+  if(form.bank_account_number&&!/^\d{5,30}$/.test(String(form.bank_account_number).replace(/\s/g,'')))return 'Số tài khoản ngân hàng phải gồm 5–30 chữ số.';
+  for(const [key,label] of [['date_of_birth','Ngày sinh'],['join_date','Ngày nhận việc'],['probation_end_date','Ngày kết thúc thử việc']]){
+    if(form[key]&&!isValidDate(String(form[key]).slice(0,10)))return `${label} không hợp lệ.`;
+  }
+  if(form.date_of_birth&&String(form.date_of_birth).slice(0,10)>=new Date().toISOString().slice(0,10))return 'Ngày sinh phải nằm trong quá khứ.';
+  if(form.join_date&&form.probation_end_date&&form.probation_end_date<form.join_date)return 'Ngày kết thúc thử việc phải sau hoặc bằng ngày nhận việc.';
+  if(includeSalary){
+    for(const key of ['base_salary','probation_salary','insurance_salary','lunch_allowance','fuel_allowance','phone_allowance','attendance_allowance','other_allowance']){
+      if(form[key]!==''&&form[key]!==null&&form[key]!==undefined&&!isValidNumber(form[key],{min:0,max:1_000_000_000_000}))return 'Các khoản lương và phụ cấp phải là số không âm hợp lệ.';
+    }
+    if(form.salary_effective_from&&!isValidDate(String(form.salary_effective_from).slice(0,10)))return 'Ngày hiệu lực lương không hợp lệ.';
+    if(form.tax_dependents!==''&&!isValidNumber(form.tax_dependents,{min:0,max:100,integer:true}))return 'Số người phụ thuộc phải là số nguyên từ 0 đến 100.';
+  }
+  return '';
+}

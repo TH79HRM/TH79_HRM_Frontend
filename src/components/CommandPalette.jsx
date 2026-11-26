@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {Search,ArrowRight,LayoutDashboard,Users,Workflow,ChartNoAxesCombined,FileText,Settings} from 'lucide-react';
+import {Search,ArrowRight,LayoutDashboard,Users,Workflow,ChartNoAxesCombined,FileText,Settings,ScanFace,CalendarOff,Maximize2} from 'lucide-react';
 import {api} from '../lib/api';
 import {useNavigate} from 'react-router-dom';
 import {entityId,entityKey} from '../lib/format';
@@ -7,6 +7,9 @@ import {entityId,entityKey} from '../lib/format';
 const commands=[
   ['Dashboard','/',LayoutDashboard],
   ['Hồ sơ nhân sự','/employees',Users],
+  ['Chấm công thông minh (Khuôn mặt / Thẻ / Vân tay)','/attendance',ScanFace],
+  ['Máy chấm công Kiosk toàn màn hình','/kiosk',Maximize2],
+  ['Nghỉ phép & Tăng ca (OT)','/leave',CalendarOff],
   ['Onboarding & hội nhập','/onboarding',Workflow],
   ['People Analytics','/analytics',ChartNoAxesCombined],
   ['Báo cáo','/reports',FileText],

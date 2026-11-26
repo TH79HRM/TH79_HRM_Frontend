@@ -4,6 +4,7 @@ import {api} from '../lib/api';
 import {Loading,PageHeader,StatCard,Badge,Modal,Empty} from '../components/ui';
 import {fmtDate} from '../lib/format';
 import {useAuth} from '../hooks/useAuth';
+import {isValidDate,isValidNumber} from '../lib/validation';
 
 export default function Recruitment(){
   const {has}=useAuth(),[d,setD]=useState(null),[look,setLook]=useState({branches:[],departments:[],positions:[]}),[open,setOpen]=useState(false),[q,setQ]=useState(''),[branch,setBranch]=useState(''),[status,setStatus]=useState('');
@@ -19,4 +20,29 @@ export default function Recruitment(){
     <Modal open={open} onClose={()=>setOpen(false)} title="Tạo vị trí tuyển dụng"><JobForm look={look} done={()=>{setOpen(false);load()}}/></Modal>
   </>;
 }
-function JobForm({look,done}){const [f,setF]=useState({job_code:'',job_title:'',headcount:1,branch_id:'',department_id:'',position_id:'',open_date:new Date().toISOString().slice(0,10),close_date:'',status:'open',description:''});const set=(k,v)=>setF(x=>({...x,[k]:v}));const submit=async e=>{e.preventDefault();await api('/talent/recruitment/jobs',{method:'POST',body:JSON.stringify(f)});done()};return <form className="form-stack modal-form" onSubmit={submit}><label>Tên vị trí tuyển dụng <b>*</b><input required value={f.job_title} onChange={e=>set('job_title',e.target.value)}/></label><div className="two-col"><label>Mã tuyển dụng<input value={f.job_code} onChange={e=>set('job_code',e.target.value)}/></label><label>Số lượng<input type="number" min="1" value={f.headcount} onChange={e=>set('headcount',e.target.value)}/></label></div><div className="two-col"><label>Chi nhánh<select value={f.branch_id} onChange={e=>set('branch_id',e.target.value)}><option value="">Toàn công ty</option>{(look.branches||[]).map(x=><option key={x.id??x._id} value={x.id}>{x.branch_name}</option>)}</select></label><label>Phòng ban<select value={f.department_id} onChange={e=>set('department_id',e.target.value)}><option value="">Chưa chọn</option>{(look.departments||[]).map(x=><option key={x.id??x._id} value={x.id}>{x.department_name}</option>)}</select></label></div><div className="two-col"><label>Chức vụ<select value={f.position_id} onChange={e=>set('position_id',e.target.value)}><option value="">Chưa chọn</option>{(look.positions||[]).map(x=><option key={x.id??x._id} value={x.id}>{x.position_name}</option>)}</select></label><label>Trạng thái<select value={f.status} onChange={e=>set('status',e.target.value)}><option value="open">Đang mở</option><option value="draft">Nháp</option><option value="paused">Tạm dừng</option></select></label></div><div className="two-col"><label>Ngày mở<input type="date" value={f.open_date} onChange={e=>set('open_date',e.target.value)}/></label><label>Ngày đóng<input type="date" value={f.close_date} onChange={e=>set('close_date',e.target.value)}/></label></div><label>Mô tả<textarea rows="4" value={f.description} onChange={e=>set('description',e.target.value)}/></label><div className="modal-actions"><button type="button" className="btn" onClick={done}>Hủy</button><button className="btn primary"><Save size={16}/> Lưu tuyển dụng</button></div></form>}
+function JobForm({look,done}){
+  const [f,setF]=useState({job_code:'',job_title:'',headcount:1,branch_id:'',department_id:'',position_id:'',open_date:new Date().toISOString().slice(0,10),close_date:'',status:'open',description:''});
+  const [error,setError]=useState(''),[busy,setBusy]=useState(false);
+  const set=(k,v)=>setF(x=>({...x,[k]:v}));
+  const submit=async e=>{
+    e.preventDefault();setError('');
+    if(String(f.job_title||'').trim().length<2||String(f.job_title).trim().length>160){setError('Tên vị trí phải có từ 2 đến 160 ký tự.');return}
+    if(!isValidNumber(f.headcount,{min:1,max:10000,integer:true})){setError('Số lượng tuyển phải là số nguyên từ 1 đến 10.000.');return}
+    if(f.open_date&&!isValidDate(f.open_date)){setError('Ngày mở vị trí không hợp lệ.');return}
+    if(f.close_date&&(!isValidDate(f.close_date)||!f.open_date||f.close_date<f.open_date)){setError('Ngày đóng phải hợp lệ và sau hoặc bằng ngày mở.');return}
+    setBusy(true);
+    try{await api('/talent/recruitment/jobs',{method:'POST',body:JSON.stringify(f)});done()}
+    catch(ex){setError(ex.message||'Không thể lưu vị trí tuyển dụng.')}
+    finally{setBusy(false)}
+  };
+  return <form className="form-stack modal-form" onSubmit={submit}>
+    {error&&<div className="form-error" role="alert">{error}</div>}
+    <label>Tên vị trí tuyển dụng <b>*</b><input required minLength="2" maxLength="160" value={f.job_title} onChange={e=>set('job_title',e.target.value)}/></label>
+    <div className="two-col"><label>Mã tuyển dụng<input maxLength="40" value={f.job_code} onChange={e=>set('job_code',e.target.value)}/></label><label>Số lượng<input type="number" min="1" max="10000" step="1" value={f.headcount} onChange={e=>set('headcount',e.target.value)}/></label></div>
+    <div className="two-col"><label>Chi nhánh<select value={f.branch_id} onChange={e=>set('branch_id',e.target.value)}><option value="">Toàn công ty</option>{(look.branches||[]).map(x=><option key={x.id??x._id} value={x.id}>{x.branch_name}</option>)}</select></label><label>Phòng ban<select value={f.department_id} onChange={e=>set('department_id',e.target.value)}><option value="">Chưa chọn</option>{(look.departments||[]).map(x=><option key={x.id??x._id} value={x.id}>{x.department_name}</option>)}</select></label></div>
+    <div className="two-col"><label>Chức vụ<select value={f.position_id} onChange={e=>set('position_id',e.target.value)}><option value="">Chưa chọn</option>{(look.positions||[]).map(x=><option key={x.id??x._id} value={x.id}>{x.position_name}</option>)}</select></label><label>Trạng thái<select value={f.status} onChange={e=>set('status',e.target.value)}><option value="open">Đang mở</option><option value="draft">Nháp</option><option value="paused">Tạm dừng</option></select></label></div>
+    <div className="two-col"><label>Ngày mở<input type="date" value={f.open_date} onChange={e=>set('open_date',e.target.value)}/></label><label>Ngày đóng<input type="date" value={f.close_date} onChange={e=>set('close_date',e.target.value)}/></label></div>
+    <label>Mô tả<textarea rows="4" maxLength="5000" value={f.description} onChange={e=>set('description',e.target.value)}/></label>
+    <div className="modal-actions"><button type="button" className="btn" onClick={done} disabled={busy}>Hủy</button><button className="btn primary" disabled={busy}><Save size={16}/>{busy?'Đang lưu...':'Lưu tuyển dụng'}</button></div>
+  </form>;
+}

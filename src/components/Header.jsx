@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {Bell,Search,LogOut,Moon,Sun,Camera,Menu,TriangleAlert,Download,Sparkles} from 'lucide-react';
+import {Bell,Search,LogOut,Moon,Sun,Camera,Menu,TriangleAlert,Download,Sparkles,KeyRound} from 'lucide-react';
 import {useAuth} from '../hooks/useAuth';
 import {api} from '../lib/api';
 import {initials} from '../lib/format';
@@ -111,6 +111,8 @@ export default function Header({onCommand,onMenu}){
       <button className="icon-button theme-toggle" type="button" title={dark?'Chế độ sáng':'Chế độ tối'} onClick={()=>setDark(!dark)}>{dark?<Sun/>:<Moon/>}</button>
 
       <button className={`icon-button pwa-install ${canInstall?'install-ready':''}`} type="button" title={canInstall?'Cài HRM như ứng dụng desktop':'Cài ứng dụng desktop'} onClick={installApp}><Download/></button>
+
+      <button className="icon-button" type="button" title="Đổi mật khẩu" aria-label="Đổi mật khẩu" onClick={()=>nav('/change-password')}><KeyRound/></button>
 
       <button className="user-chip user-chip-button" type="button" title="Cập nhật ảnh đại diện" onClick={()=>fileRef.current?.click()}>
         <span className={`avatar avatar-sm ${avatar?'avatar-photo':''}`}>

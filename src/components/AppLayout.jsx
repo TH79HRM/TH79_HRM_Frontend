@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react';
-import {Navigate, Outlet} from 'react-router-dom';
+import {Navigate, Outlet, useLocation} from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import CommandPalette from './CommandPalette';
@@ -10,6 +10,7 @@ import {Loading} from './ui';
 
 export default function AppLayout(){
   const {user,loading}=useAuth();
+  const location=useLocation();
   const [commandOpen,setCommandOpen]=useState(false);
   const [mobileNavOpen,setMobileNavOpen]=useState(false);
 
@@ -30,6 +31,7 @@ export default function AppLayout(){
 
   if(loading) return <Loading/>;
   if(!user) return <Navigate to="/login" replace/>;
+  if(user.must_change_password&&location.pathname!=='/change-password') return <Navigate to="/change-password" replace/>;
 
   return <div className="app-shell php-ui-shell">
     <Sidebar mobileOpen={mobileNavOpen} onMobileClose={()=>setMobileNavOpen(false)}/>

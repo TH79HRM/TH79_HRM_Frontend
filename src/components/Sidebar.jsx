@@ -1,15 +1,16 @@
 import {NavLink} from 'react-router-dom';
 import {
-  LayoutDashboard,Users,Workflow,FileSignature,WalletCards,UserSearch,
+  LayoutDashboard,Users,FileSignature,WalletCards,UserSearch,
   GraduationCap,ScrollText,Settings2,UserRound,ClipboardCheck,
-  FileBarChart,Files,Building2,ChevronRight,BarChart3
+  FileBarChart,Files,Building2,ChevronRight,BarChart3,ScanFace,CalendarOff
 } from 'lucide-react';
 import {useAuth} from '../hooks/useAuth';
 
 const management=[
   ['/', 'Tổng quan', LayoutDashboard, 'dashboard.view'],
   ['/employees', 'Nhân sự', Users, 'employee.view'],
-  ['/onboarding', 'Onboarding', Workflow, 'employee.view', 'NEW'],
+  ['/attendance', 'Chấm công', ScanFace, 'attendance.view', 'NEW'],
+  ['/leave', 'Nghỉ phép & OT', CalendarOff, 'attendance.view'],
   ['/contracts', 'Hợp đồng', FileSignature, 'contract.view'],
   ['/payroll', 'Tiền lương', WalletCards, 'payroll.view'],
   ['/recruitment', 'Tuyển dụng', UserSearch, 'recruitment.view'],

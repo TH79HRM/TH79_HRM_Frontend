@@ -68,6 +68,7 @@ export default function Dashboard(){
 
     <section className="modern-hr-hub modern-hr-hub-v9">
       <Link className="modern-hub-card workflow" to="/onboarding"><span><Workflow/></span><div><small>WORKFLOW</small><strong>Onboarding</strong><p>{d.onboardingSummary?.in_progress||0} đang thực hiện · {d.onboardingSummary?.progress||0}% tiến độ</p></div><ArrowUpRight/></Link>
+      {has('attendance.view')&&<Link className="modern-hub-card analytics" to="/attendance"><span><Clock3/></span><div><small>ATTENDANCE</small><strong>Chấm công hôm nay</strong><p>{d.attendanceToday?.checked_in||0} đã check-in · {d.attendanceToday?.late||0} đi muộn</p></div><ArrowUpRight/></Link>}
       {has('employee.update')&&<Link className="modern-hub-card selfservice" to="/self-service/requests"><span><Inbox/></span><div><small>SELF-SERVICE</small><strong>Yêu cầu nhân viên</strong><p>{d.pendingSelfService||0} yêu cầu đang chờ duyệt</p></div><ArrowUpRight/></Link>}
       {has('report.view')&&<Link className="modern-hub-card analytics" to="/analytics"><span><BrainCircuit/></span><div><small>PEOPLE INTELLIGENCE</small><strong>Data Quality {s.dataQuality}/100</strong><p>{d.anomalyCount||0} phát hiện cần kiểm tra</p></div><ArrowUpRight/></Link>}
     </section>

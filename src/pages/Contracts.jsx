@@ -4,6 +4,7 @@ import {api} from '../lib/api';
 import {Loading,PageHeader,Badge,Modal,Empty} from '../components/ui';
 import {fmtDate,money} from '../lib/format';
 import {useAuth} from '../hooks/useAuth';
+import {isValidDate,isValidNumber} from '../lib/validation';
 
 export default function Contracts(){
   const {has}=useAuth();
@@ -34,17 +35,30 @@ export default function Contracts(){
 
 function ContractForm({types,done}){
   const [emps,setEmps]=useState([]),[f,setF]=useState({employee_id:'',contract_type_id:types[0]?.id||'',contract_no:'',signed_date:'',start_date:'',end_date:'',base_salary:'',allowance_amount:'',status:'draft',note:''});
+  const [error,setError]=useState(''),[busy,setBusy]=useState(false);
   useEffect(()=>{api('/employees?limit=100').then(r=>setEmps(r.items||[]))},[]);
   useEffect(()=>{if(!f.contract_type_id&&types[0]?.id)setF(x=>({...x,contract_type_id:types[0].id}))},[types]);
   const set=(k,v)=>setF(x=>({...x,[k]:v}));
-  const submit=async e=>{e.preventDefault();await api('/contracts',{method:'POST',body:JSON.stringify(f)});done()};
+  const submit=async e=>{
+    e.preventDefault();setError('');
+    if(!f.employee_id||!f.contract_type_id){setError('Vui lòng chọn nhân viên và loại hợp đồng.');return}
+    if(!isValidDate(f.start_date)){setError('Ngày bắt đầu hợp đồng không hợp lệ.');return}
+    if(f.end_date&&(!isValidDate(f.end_date)||f.end_date<f.start_date)){setError('Ngày kết thúc phải hợp lệ và sau hoặc bằng ngày bắt đầu.');return}
+    if(f.signed_date&&(!isValidDate(f.signed_date)||(f.end_date&&f.signed_date>f.end_date))){setError('Ngày ký hợp đồng không hợp lệ.');return}
+    if(['base_salary','allowance_amount'].some(key=>f[key]!==''&&!isValidNumber(f[key],{min:0,max:1_000_000_000_000}))){setError('Lương và phụ cấp phải là số không âm hợp lệ.');return}
+    setBusy(true);
+    try{await api('/contracts',{method:'POST',body:JSON.stringify(f)});done()}
+    catch(err){setError(err.message||'Không thể lưu hợp đồng.')}
+    finally{setBusy(false)}
+  };
   return <form className="form-stack modal-form" onSubmit={submit}>
+    {error&&<div className="form-error" role="alert">{error}</div>}
     <label>Nhân viên <b>*</b><select required value={f.employee_id} onChange={e=>set('employee_id',e.target.value)}><option value="">-- Chọn nhân viên --</option>{emps.map(x=><option key={x.id??x._id} value={x.id??x._id}>{x.employee_code} · {x.full_name}</option>)}</select></label>
     <div className="two-col"><label>Loại hợp đồng <b>*</b><select required value={f.contract_type_id} onChange={e=>set('contract_type_id',e.target.value)}><option value="">-- Chọn loại --</option>{types.map(x=><option value={x.id} key={x.id??x._id}>{x.contract_type_name}</option>)}</select></label><label>Số hợp đồng<input value={f.contract_no} onChange={e=>set('contract_no',e.target.value)} placeholder="Ví dụ: HĐLĐ-001/2026"/></label></div>
     <div className="two-col"><label>Ngày ký<input type="date" value={f.signed_date} onChange={e=>set('signed_date',e.target.value)}/></label><label>Ngày bắt đầu <b>*</b><input required type="date" value={f.start_date} onChange={e=>set('start_date',e.target.value)}/></label></div>
     <div className="two-col"><label>Ngày kết thúc<input type="date" value={f.end_date} onChange={e=>set('end_date',e.target.value)}/></label><label>Lương cơ bản<input type="number" min="0" value={f.base_salary} onChange={e=>set('base_salary',e.target.value)}/></label></div>
     <div className="two-col"><label>Phụ cấp<input type="number" min="0" value={f.allowance_amount} onChange={e=>set('allowance_amount',e.target.value)}/></label><label>Trạng thái<select value={f.status} onChange={e=>set('status',e.target.value)}><option value="draft">Nháp</option><option value="active">Hiệu lực</option><option value="expired">Hết hạn</option><option value="terminated">Chấm dứt</option></select></label></div>
     <label>Ghi chú<textarea rows="3" value={f.note} onChange={e=>set('note',e.target.value)}/></label>
-    <div className="modal-actions"><button type="button" className="btn" onClick={done}>Hủy</button><button className="btn primary"><Save size={16}/> Lưu hợp đồng</button></div>
+    <div className="modal-actions"><button type="button" className="btn" onClick={done} disabled={busy}>Hủy</button><button className="btn primary" disabled={busy}><Save size={16}/> {busy?'Đang lưu...':'Lưu hợp đồng'}</button></div>
   </form>;
 }
