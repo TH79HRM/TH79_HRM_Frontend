@@ -28,7 +28,7 @@ export default function Copilot(){
   };
 
   return <>
-    <button className="copilot-fab" onClick={()=>setOpen(!open)}><Sparkles size={20}/><span>HRM Copilot</span></button>
+    <button type="button" className="copilot-fab" title="Mở HRM Copilot" aria-label="Mở HRM Copilot" onClick={()=>setOpen(!open)}><Sparkles size={20}/><span>HRM Copilot</span></button>
     {open&&<div className="copilot">
       <div className="copilot-head"><span className="copilot-logo"><Bot size={22}/></span><div><strong>Trợ lý HRM</strong><small><i/> Tra cứu dữ liệu nội bộ</small></div><button onClick={()=>setOpen(false)}><X size={20}/></button></div>
       <div className="copilot-intro"><strong>Tìm người nhanh hơn.</strong><span>Nhập tên, mã nhân viên, số điện thoại hoặc hỏi bằng câu tự nhiên.</span><div className="chips">{suggestions.map(s=><button key={s} onClick={()=>ask(s)}>{s}</button>)}</div></div>

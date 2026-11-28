@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  CalendarOff, Clock3, FileText, Mail, MapPin, Phone, QrCode, ScanFace, Send,
+  CalendarCheck2, CalendarOff, Clock3, FileText, KeyRound, Mail, MapPin, Phone, QrCode, ScanFace, Send,
   ShieldCheck, WalletCards
 } from 'lucide-react';
 import { api } from '../lib/api';
@@ -30,6 +31,7 @@ export default function SelfService() {
   const [openBadge, setOpenBadge] = useState(false);
   const [openLeave, setOpenLeave] = useState(false);
   const [openAdj, setOpenAdj] = useState(false);
+  const [selectedPayslip, setSelectedPayslip] = useState(null);
   const [toast, setToast] = useState(null);
 
   const notify = (message, tone = 'success') => setToast({ message, tone, key: Date.now() });
@@ -63,6 +65,12 @@ export default function SelfService() {
 
   const e = d.employee;
   const todayRec = att?.todayRecord;
+  const attRecords = att?.records || [];
+  const totalWorkedHours = attRecords.reduce((sum, r) => sum + Number(r.worked_hours || 0), 0);
+  const pendingRequestsCount =
+    leaveReqs.filter(r => r.status === 'pending').length +
+    (att?.adjustments || []).filter(a => a.status === 'pending').length +
+    (d.requests || []).filter(r => r.status === 'pending').length;
 
   return <>
     {toast && <Toast key={toast.key} message={toast.message} tone={toast.tone} onClose={() => setToast(null)} />}
@@ -72,6 +80,7 @@ export default function SelfService() {
       title="Cổng thông tin cá nhân"
       subtitle="Chấm công, xem bảng công, bảng lương, bảng tên QR, xin nghỉ phép và gửi yêu cầu cập nhật hồ sơ."
       actions={<>
+        <Link className="btn ghost" to="/change-password"><KeyRound size={17} /> Đổi mật khẩu</Link>
         <button className="btn ghost" onClick={() => setOpenBadge(true)}><QrCode size={17} /> Bảng tên QR</button>
         <button className="btn ghost" onClick={() => setOpenLeave(true)}><CalendarOff size={17} /> Xin nghỉ / OT</button>
         <button className="btn ghost" onClick={() => setOpenProfileReq(true)}><Send size={17} /> Cập nhật hồ sơ</button>
@@ -94,6 +103,41 @@ export default function SelfService() {
       </div>
     </section>
 
+    <div className="self-stats-grid">
+      <div className="stat-card">
+        <span className="stat-icon"><CalendarCheck2 size={20} /></span>
+        <div>
+          <span className="stat-label">Ngày công tháng</span>
+          <strong className="stat-value">{attRecords.length}</strong>
+          <small className="stat-detail">Tổng {totalWorkedHours.toFixed(1)} giờ làm</small>
+        </div>
+      </div>
+      <div className="stat-card">
+        <span className="stat-icon green"><WalletCards size={20} /></span>
+        <div>
+          <span className="stat-label">Kỳ lương gần nhất</span>
+          <strong className="stat-value">{payslips[0] ? money(payslips[0].net_salary) : '—'}</strong>
+          <small className="stat-detail">{payslips.length} phiếu lương đã phát hành</small>
+        </div>
+      </div>
+      <div className="stat-card">
+        <span className="stat-icon purple"><CalendarOff size={20} /></span>
+        <div>
+          <span className="stat-label">Phép năm còn lại</span>
+          <strong className="stat-value">{att?.leaveBalance ? `${att.leaveBalance.remaining_annual}/${att.leaveBalance.annual_quota}` : '—'}</strong>
+          <small className="stat-detail">Ngày phép trong năm</small>
+        </div>
+      </div>
+      <div className="stat-card">
+        <span className="stat-icon orange"><Clock3 size={20} /></span>
+        <div>
+          <span className="stat-label">Đơn chờ duyệt</span>
+          <strong className="stat-value">{pendingRequestsCount}</strong>
+          <small className="stat-detail">Nghỉ phép, OT, giải trình &amp; hồ sơ</small>
+        </div>
+      </div>
+    </div>
+
     <div className="self-grid">
       <section className="card">
         <div className="card-head">
@@ -113,15 +157,15 @@ export default function SelfService() {
       </section>
 
       <section className="card">
-        <div className="card-head"><div><h3>Phiếu lương của tôi</h3><p>{payslips.length} kỳ lương</p></div></div>
+        <div className="card-head"><div><h3>Phiếu lương của tôi</h3><p>{payslips.length} kỳ lương · Bấm để xem chi tiết</p></div></div>
         <div className="simple-list">
-          {payslips.map(p => <div key={p.id || p._id}>
+          {payslips.map(p => <button type="button" className="payslip-row-btn" key={p.id || p._id} onClick={() => setSelectedPayslip(p)}>
             <span>
               <strong>Kỳ lương #{p.payroll_period_id} · {p.actual_work_days} ngày công</strong>
               <small>Gross: {money(p.gross_salary)} · Khấu trừ: {money(p.total_deduction)}</small>
             </span>
             <strong style={{ color: 'var(--green)' }}>{money(p.net_salary)}</strong>
-          </div>)}
+          </button>)}
           {!payslips.length && <Empty title="Chưa có kỳ lương" />}
         </div>
       </section>
@@ -199,6 +243,18 @@ export default function SelfService() {
 
     <Modal open={openProfileReq} onClose={() => setOpenProfileReq(false)} title="Yêu cầu cập nhật thông tin">
       <RequestForm employee={e} done={() => { setOpenProfileReq(false); notify('Đã gửi yêu cầu cập nhật.'); load(); }} />
+    </Modal>
+
+    <Modal open={Boolean(selectedPayslip)} onClose={() => setSelectedPayslip(null)} title={`Chi tiết phiếu lương #${selectedPayslip?.payroll_period_id || ''}`}>
+      {selectedPayslip && <div className="payslip-detail-grid">
+        <div><span>Ngày công thực tế</span><strong>{selectedPayslip.actual_work_days ?? 0} ngày</strong></div>
+        <div><span>Lương cơ bản</span><strong>{money(selectedPayslip.base_salary)}</strong></div>
+        <div><span>Phụ cấp</span><strong>{money(selectedPayslip.allowance_total)}</strong></div>
+        <div><span>Thưởng / OT</span><strong>{money(selectedPayslip.bonus_total)}</strong></div>
+        <div><span>Tổng thu nhập (Gross)</span><strong>{money(selectedPayslip.gross_salary)}</strong></div>
+        <div><span>Tổng khấu trừ</span><strong style={{ color: 'var(--red)' }}>-{money(selectedPayslip.total_deduction)}</strong></div>
+        <div className="net-row"><span>Thực lãnh (Net)</span><strong style={{ color: 'var(--green)' }}>{money(selectedPayslip.net_salary)}</strong></div>
+      </div>}
     </Modal>
   </>;
 }

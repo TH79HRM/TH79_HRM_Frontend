@@ -221,7 +221,13 @@ function UserForm({roles,initial,done}){
   const submit=async e=>{
     e.preventDefault();setBusy(true);setError('');
     try{
-      const payload={...f,employee_id:f.employee_id||null};
+      const payload={
+        ...f,
+        username:String(f.username||'').trim(),
+        email:String(f.email||'').trim(),
+        password:String(f.password||'').trim(),
+        employee_id:f.employee_id||null
+      };
       if(edit&&!payload.password)delete payload.password;
       const target=initial?.manage_id??initial?.id??initial?._id;
       await api(edit?`/system/users/${encodeURIComponent(target)}`:'/system/users',{method:edit?'PUT':'POST',body:JSON.stringify(payload)});
@@ -233,11 +239,11 @@ function UserForm({roles,initial,done}){
     {error&&<div className="form-error">{error}</div>}
     {initial?.is_super_admin?<div className="user-admin-notice"><ShieldCheck/><span><strong>Tài khoản Super Admin</strong><small>Tài khoản này có toàn quyền hệ thống độc lập với vai trò RBAC.</small></span></div>:null}
     <div className="two-col">
-      <label>Tài khoản<input required minLength="3" maxLength="64" pattern="[A-Za-z0-9._-]+" value={f.username} onChange={e=>setF({...f,username:e.target.value})} autoComplete="off"/></label>
-      <label>Email<input type="email" maxLength="254" value={f.email} onChange={e=>setF({...f,email:e.target.value})} placeholder="email@congty.vn"/></label>
+      <label>Tài khoản<input required minLength="3" maxLength="64" pattern="[A-Za-z0-9._-]+" value={f.username} onChange={e=>setF({...f,username:e.target.value})} onBlur={e=>setF(x=>({...x,username:e.target.value.trim()}))} autoComplete="off"/></label>
+      <label>Email<input type="email" maxLength="254" value={f.email} onChange={e=>setF({...f,email:e.target.value})} onBlur={e=>setF(x=>({...x,email:e.target.value.trim()}))} placeholder="email@congty.vn"/></label>
     </div>
     <div className="two-col">
-      {!edit&&<label>Mật khẩu ban đầu<div className="input-with-icon"><KeyRound/><input required minLength="8" maxLength="72" type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})} placeholder="Tối thiểu 8 ký tự" autoComplete="new-password"/></div><small className="field-help">Người dùng sẽ phải đổi mật khẩu ở lần đăng nhập đầu tiên.</small></label>}
+      {!edit&&<label>Mật khẩu ban đầu<div className="input-with-icon"><KeyRound/><input required minLength="8" maxLength="72" type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})} onBlur={e=>setF(x=>({...x,password:e.target.value.trim()}))} placeholder="Tối thiểu 8 ký tự" autoComplete="new-password"/></div><small className="field-help">Người dùng sẽ phải đổi mật khẩu ở lần đăng nhập đầu tiên.</small></label>}
       <label>Trạng thái<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}><option value="active">Đang hoạt động</option><option value="inactive">Ngưng hoạt động</option><option value="locked">Khóa đăng nhập</option></select></label>
     </div>
     <div className="user-role-field"><div className="role-field-label"><span>Vai trò</span><small>Có thể chọn một hoặc nhiều vai trò cho tài khoản.</small></div><div className="user-role-selector">{roles.length?roles.map((r,i)=>{const roleId=Number(r.id);const selected=Number.isFinite(roleId)&&f.role_ids.includes(roleId);return <button type="button" className={selected?'selected':''} key={r.id??r.role_code??i} onClick={()=>Number.isFinite(roleId)&&toggleRole(roleId)} disabled={!Number.isFinite(roleId)}><span className="role-check">{selected?'✓':''}</span><span><strong>{r.role_name}</strong><small>{r.role_code||`ID ${r.id??'—'}`}</small></span></button>}):<div className="role-selector-empty">Chưa có vai trò khả dụng. Hãy tạo vai trò tại mục Vai trò & phân quyền.</div>}</div>{!f.role_ids.length&&<small className="field-help">Tài khoản chưa được gán vai trò RBAC.</small>}</div>

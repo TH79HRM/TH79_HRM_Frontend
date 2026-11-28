@@ -15,8 +15,11 @@ export default function Login(){
 
   const submit=async e=>{
     e.preventDefault();
+    const cleanLogin=String(form.login||'').trim();
+    const cleanPassword=String(form.password||'').trim();
+    setForm({login:cleanLogin,password:cleanPassword});
     setBusy(true);setError('');
-    try{await login(form.login,form.password);nav('/')}catch(err){setError(err.message)}finally{setBusy(false)}
+    try{await login(cleanLogin,cleanPassword);nav('/')}catch(err){setError(err.message)}finally{setBusy(false)}
   };
 
   return <div className="login-shell">
@@ -47,8 +50,8 @@ export default function Login(){
         </div>
         {error&&<div className="alert danger"><span>{error}</span></div>}
         <div className="form-stack">
-          <label className="field"><span>Tài khoản hoặc email</span><div className="input-icon"><User/><input value={form.login} onChange={e=>setForm({...form,login:e.target.value})} placeholder="admin" autoComplete="username" autoFocus/></div></label>
-          <label className="field"><span>Mật khẩu</span><div className="input-icon"><LockKeyhole/><input type={show?'text':'password'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Nhập mật khẩu" autoComplete="current-password"/><button type="button" className="password-toggle" onClick={()=>setShow(!show)}>{show?<EyeOff/>:<Eye/>}</button></div></label>
+          <label className="field"><span>Tài khoản hoặc email</span><div className="input-icon"><User/><input value={form.login} onChange={e=>setForm({...form,login:e.target.value})} onBlur={e=>setForm(f=>({...f,login:e.target.value.trim()}))} placeholder="admin" autoComplete="username" autoFocus/></div></label>
+          <label className="field"><span>Mật khẩu</span><div className="input-icon"><LockKeyhole/><input type={show?'text':'password'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} onBlur={e=>setForm(f=>({...f,password:e.target.value.trim()}))} placeholder="Nhập mật khẩu" autoComplete="current-password"/><button type="button" className="password-toggle" onClick={()=>setShow(!show)}>{show?<EyeOff/>:<Eye/>}</button></div></label>
           <button className="btn btn-primary btn-block login-submit" disabled={busy}><span>{busy?'Đang xác thực...':'Đăng nhập hệ thống'}</span><ArrowRight/></button>
         </div>
         <p className="login-note"><Shield/> Dữ liệu nhân sự chỉ dành cho người dùng được phân quyền.</p>

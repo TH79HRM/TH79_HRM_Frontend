@@ -239,6 +239,19 @@ export default function Sidebar({mobileOpen,onMobileClose,onCommand}){
             </nav>}
           </div>;
         })}
+        {NAV_GROUPS.every(group=>!group.items.some(item=>!item.perm||has(item.perm)))&&<div className="base-nav-group">
+          <div className="base-nav-group-btn"><span>Không gian nhân viên</span></div>
+          <nav className="base-nav-list">
+            {user?.employee_id&&<NavLink to="/me" className={`base-nav-item ${location.pathname==='/me'?'active':''}`} onClick={onMobileClose}>
+              <UserRound/>
+              <span>Cổng cá nhân</span>
+            </NavLink>}
+            <NavLink to="/change-password" className={`base-nav-item ${location.pathname==='/change-password'?'active':''}`} onClick={onMobileClose}>
+              <KeyRound/>
+              <span>Đổi mật khẩu</span>
+            </NavLink>
+          </nav>
+        </div>}
       </div>
 
       {user?.employee_id&&<div className="base-subnav-footer">
